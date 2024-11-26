@@ -1,7 +1,9 @@
-import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+
+import 'dart:async';
 
 class FlyingCarGameApp extends StatelessWidget {
   @override
@@ -24,16 +26,18 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   // Game variables
-  double carYPosition = 300.0;
-  double carXPosition = 100.0;
+  double airplaneYPosition = 300.0;
+  double airplaneXPosition = 100.0;
   double velocity = 0.0;
   final double gravity = 0.5;
   final double jumpStrength = -10.0;
   bool isGameOver = false;
   int score = 0;
+  int points = 0;
 
   // Obstacles
   List<Obstacle> obstacles = [];
+  List<PointItem> pointItems = [];
   final Random random = Random();
 
   // Game loop and timer
@@ -48,11 +52,13 @@ class _GameScreenState extends State<GameScreen> {
   void startGame() {
     // Reset game state
     setState(() {
-      carYPosition = 300.0;
+      airplaneYPosition = 300.0;
       velocity = 0.0;
       isGameOver = false;
       score = 0;
+      points = 0;
       obstacles.clear();
+      pointItems.clear();
     });
 
     // Start game loop
@@ -72,17 +78,26 @@ class _GameScreenState extends State<GameScreen> {
         timer.cancel();
       }
     });
+
+    // Spawn point items periodically
+    Timer.periodic(Duration(seconds: 3), (timer) {
+      if (!isGameOver) {
+        spawnPointItem();
+      } else {
+        timer.cancel();
+      }
+    });
   }
 
   void updateGame() {
     setState(() {
       // Apply gravity
       velocity += gravity;
-      carYPosition += velocity;
+      airplaneYPosition += velocity;
 
       // Check for ground collision
-      if (carYPosition >= MediaQuery.of(context).size.height - 100) {
-        carYPosition = MediaQuery.of(context).size.height - 100;
+      if (airplaneYPosition >= MediaQuery.of(context).size.height - 100) {
+        airplaneYPosition = MediaQuery.of(context).size.height - 100;
         velocity = 0.0;
       }
 
@@ -96,6 +111,18 @@ class _GameScreenState extends State<GameScreen> {
         }
 
         return obstacle.xPosition < -50;
+      });
+
+      // Move and remove point items
+      pointItems.removeWhere((pointItem) {
+        pointItem.xPosition -= 5;
+        
+        // Check point collection
+        if (isPointCollection(pointItem)) {
+          points += 10;
+        }
+
+        return pointItem.xPosition < -50;
       });
 
       // Increment score
@@ -113,11 +140,27 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
+  void spawnPointItem() {
+    setState(() {
+      pointItems.add(PointItem(
+        xPosition: MediaQuery.of(context).size.width,
+        yPosition: random.nextDouble() * (MediaQuery.of(context).size.height - 200) + 100,
+        size: 30,
+      ));
+    });
+  }
+
   bool isCollision(Obstacle obstacle) {
-    // Simple rectangular collision detection
-    return carXPosition < obstacle.xPosition + obstacle.width &&
-        carXPosition + 50 > obstacle.xPosition &&
-        carYPosition < obstacle.height;
+    return airplaneXPosition < obstacle.xPosition + obstacle.width &&
+        airplaneXPosition + 50 > obstacle.xPosition &&
+        airplaneYPosition < obstacle.height;
+  }
+
+  bool isPointCollection(PointItem pointItem) {
+    return airplaneXPosition < pointItem.xPosition + pointItem.size &&
+        airplaneXPosition + 50 > pointItem.xPosition &&
+        airplaneYPosition < pointItem.yPosition + pointItem.size &&
+        airplaneYPosition + 50 > pointItem.yPosition;
   }
 
   void jump() {
@@ -146,14 +189,14 @@ class _GameScreenState extends State<GameScreen> {
           height: double.infinity,
           child: Stack(
             children: [
-              // Car
+              // Airplane
               Positioned(
-                left: carXPosition,
-                top: carYPosition,
-                child: Container(
-                  width: 50,
-                  height: 30,
-                  color: Colors.red,
+                left: airplaneXPosition,
+                top: airplaneYPosition,
+                child: Icon(
+                  LucideIcons.plane,
+                  size: 50,
+                  color: Colors.blue[800],
                 ),
               ),
 
@@ -168,16 +211,43 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                   )),
 
-              // Score
+              // Point Items
+              ...pointItems.map((pointItem) => Positioned(
+                    left: pointItem.xPosition,
+                    top: pointItem.yPosition,
+                    child: Container(
+                      width: pointItem.size,
+                      height: pointItem.size,
+                      decoration: BoxDecoration(
+                        color: Colors.yellow,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  )),
+
+              // Scores
               Positioned(
                 top: 50,
                 left: 20,
-                child: Text(
-                  'Score: $score',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Distance: $score',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Points: $points',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.yellow[700],
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
@@ -193,6 +263,13 @@ class _GameScreenState extends State<GameScreen> {
                           fontSize: 48,
                           fontWeight: FontWeight.bold,
                           color: Colors.red,
+                        ),
+                      ),
+                      Text(
+                        'Total Points: $points',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                       SizedBox(height: 20),
@@ -226,5 +303,17 @@ class Obstacle {
     required this.xPosition,
     required this.height,
     required this.width,
+  });
+}
+
+class PointItem {
+  double xPosition;
+  double yPosition;
+  double size;
+
+  PointItem({
+    required this.xPosition,
+    required this.yPosition,
+    required this.size,
   });
 }
