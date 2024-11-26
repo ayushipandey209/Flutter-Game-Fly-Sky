@@ -200,7 +200,7 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
 
-              // Obstacles
+              // Obstaclesdd
               ...obstacles.map((obstacle) => Positioned(
                     left: obstacle.xPosition,
                     top: 0,
